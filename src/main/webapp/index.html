@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>五星荟客服系统</title>
+</head>
+<body>
+<script type="text/javascript">
+
+    /**
+     * ct:客户端类型（用户-us,客服-cs）
+     * uid:用户id
+     * */
+    var from_ct , from_cid , socket,receiveMsgObj;
+
+    function openWebSockek() {
+        from_ct = document.getElementById("client_type").value;
+        if (!from_ct){
+            alert('请选择类型');
+            return;
+        }
+        from_cid = document.getElementById("client_id").value;
+        if (!from_cid){
+            alert('请输入账号');
+            return;
+        }
+        var title ;
+        if (from_ct == 'cs'){
+            title = '客服';
+        }else if (from_ct == 'us'){
+            title = '用户';
+        }else {
+            alert('输入不合法');
+            return;
+        }
+        var title_des = title+'['+from_cid+']的聊天室'
+        document.title = title_des;
+        document.getElementById('chat_room_title').innerText = title_des;
+        document.getElementById("chat_box").style.display = "";
+        /**
+         * webSocket的生命周期
+         * 1.开启事件
+         * 2.消息事件
+         * 3.错误事件
+         * 4.关闭事件
+         */
+
+        if (!window.WebSocket) {
+            window.WebSocket = window.MozWebSocket;
+        }
+        if (window.WebSocket) {
+            var uri = "ws://localhost:8080/ws/" + from_ct + "/" + from_cid;
+            socket = new WebSocket(uri);
+            //开启事件
+            socket.onopen = function (event) {
+                var ta = document.getElementById('responseText');
+                ta.value = "[系统提示] 连接开启!";
+            };
+            //消息事件
+            socket.onmessage = function (event) {
+                receiveMsgObj = JSON.parse(event.data);
+                var ta = document.getElementById('responseText');
+                var fromId = receiveMsgObj.from.cid;
+                var title = !fromId ? '系统提示' : fromId;
+                ta.value = ta.value + '\n' + '['+title+'] '+receiveMsgObj.content
+            };
+            //关闭事件
+            socket.onclose = function (event) {
+                var ta = document.getElementById('responseText');
+                ta.value = ta.value + "[系统提示] 连接关闭";
+            };
+        } else {
+            alert("[系统提示] 你的浏览器不支持 WebSocket！");
+        }
+    }
+
+    function send() {
+        if (!window.WebSocket) {
+            return;
+        }
+        var content = document.getElementById("message").value;
+        if (!content){
+            return;
+        }
+        var ta = document.getElementById('responseText');
+        ta.value = ta.value + '\n' + '[我] '+content;
+        document.getElementById("message").value='';
+
+        var to_ct = receiveMsgObj == null ? "" : receiveMsgObj.from.ct;
+        var to_cid = receiveMsgObj == null ? "" : receiveMsgObj.from.cid;
+        var msgObj = {
+            msgId: guid(),
+            time: "2019-03-07 10:20:02",
+            content: content,
+            from: {ct: from_ct,cid: from_cid},
+            to: {ct: to_ct,cid: to_cid}
+        };
+        if (socket.readyState == WebSocket.OPEN) {
+            try {
+                var json = JSON.stringify(msgObj);
+                socket.send(json);
+            } catch (e) {
+                alert(e.toString());
+                return;
+            }
+        } else {
+            alert("[系统提示] 连接没有开启.");
+        }
+    }
+
+    function guid() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+</script>
+<div>
+    <lable>客户端类型：</lable>
+    <select id="client_type">
+        <option value="cs">客服</option>
+        <option value="us">用户</option>
+    </select>
+    <lable>请输入账号：</lable>
+    <input id="client_id" type="text" style="width: 80px">
+    <input type="button" value="上线" onclick="openWebSockek()">
+</div>
+<div id="chat_box" style="display: none">
+    <h3 id="chat_room_title"></h3>
+    <textarea id="responseText" readonly="readonly" style="width: 330px; height: 150px;"></textarea>
+    <br>
+    <input id="message" type="text" style="width: 260px">
+    <input type="button" value="发送消息" onclick="send()">
+</div>
+</body>
+</html>
